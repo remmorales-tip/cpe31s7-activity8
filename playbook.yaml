@@ -1,0 +1,19 @@
+
+---
+- name: LAMP Stack
+  hosts: lamp
+
+  tasks:
+  - name: Include variables from config.yaml
+    include_vars:
+      file: config.yaml
+
+  - name: Install and configure Apache + PHP
+    include_role:
+      name: apache
+    when: ansible_distribution == 'Ubuntu'
+
+  - name: Install MariaDB
+    include_role:
+      name: mariadb
+    when: ansible_distribution == 'Ubuntu'

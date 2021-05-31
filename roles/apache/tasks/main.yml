@@ -1,0 +1,73 @@
+---
+# tasks file for roles/apache
+- name: Install Apache and PHP using apt
+  apt:
+    name: "{{ packages }}"
+    state: present
+    update_cache: yes
+  vars:
+    packages:
+    - apache2
+    - php
+    - libapache2-mod-php
+    - php-mysql
+  become: yes
+
+- name: Stop Firewall
+  service:
+    name: ufw
+    state: stopped
+    enabled: no
+  become: yes
+
+- name: Start and enabled Apache service
+  service:
+    name: apache2
+    state: started
+    enabled: yes
+
+- name: Create /var/www/domain/ for domain config
+  file:
+    path: "/var/www/{{ domain }}"
+    state: directory
+    owner: "{{ owner }}"
+    group: "{{ owner }}"
+    mode: '0755'
+
+- name: Create conf file and place in /etc/apache2/sites-available
+  template:
+    src: "templates/config.j2"
+    dest: "/etc/apache2/sites-available/{{ domain }}.conf"
+    owner: "{{ owner }}"
+    group: "{{ group }}"
+    mode: '0755'
+  register: result
+
+- name: Set new virtual host above default
+  shell: "a2ensite {{ domain }}; a2dissite 000-default"
+  when: result.changed
+
+- name: Copy index.html
+  copy:
+    src: "{{ index_html }}"
+    dest: "/var/www/{{ domain }}/index.html"
+    owner: "{{ owner }}"
+    group: "{{ group }}"
+    mode: '0755'
+  register: index_html
+
+- name: Create info.php on the domain directory inside /var/www/
+  copy:
+    content: "<?php phpinfo();"
+    dest: "/var/www/{{ domain }}/info.php"
+    owner: "{{ owner }}"
+    group: "{{ group }}"
+    mode: '0755'
+  register: phpinfo
+  become: yes
+
+- name: Restart Apache2
+  service:
+    name: apache2
+    state: restarted
+  when: index_html.changed or phpinfo.changed
